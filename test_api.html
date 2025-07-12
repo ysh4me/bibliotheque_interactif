@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Test API Google Books</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 p-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold mb-8 text-center">Test API Google Books</h1>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Recherche de livres</h2>
+                <div class="flex gap-4 mb-4">
+                    <input type="text" id="search-input" 
+                        placeholder="Rechercher un livre (ex: Harry Potter, 1984, Dune...)"
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="search-btn" 
+                            class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                        Rechercher
+                    </button>
+                </div>
+                
+                <div id="loading" class="hidden text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <p class="mt-2 text-gray-600">Recherche en cours...</p>
+                </div>
+            </div>
+
+            <div id="results" class="space-y-4"></div>
+            
+            <div id="stats" class="mt-8 bg-gray-50 rounded-lg p-4">
+                <h3 class="font-semibold mb-2">Statistiques API :</h3>
+                <div id="stats-content" class="text-sm text-gray-600"></div>
+            </div>
+        </div>
+
+        <script src="js/config.js"></script>
+        <script src="js/api.js"></script>
+        <script>
+            window.uiService = {
+                showLoading: function(isLoading) {
+                    const loadingEl = document.getElementById('loading');
+                    if (isLoading) {
+                        loadingEl.classList.remove('hidden');
+                    } else {
+                        loadingEl.classList.add('hidden');
+                    }
+                },
+                showMessage: function(message, type) {
+                    const alertClass = type === 'error' ? 'bg-red-100 border-red-500 text-red-700' : 'bg-blue-100 border-blue-500 text-blue-700';
+                    const resultsEl = document.getElementById('results');
+                    resultsEl.innerHTML = `
+                        <div class="border-l-4 ${alertClass} p-4">
+                            <p>${message}</p>
+                        </div>
+                    `;
+                }
+            };
+
+            document.getElementById('search-btn').addEventListener('click', async () => {
+                const query = document.getElementById('search-input').value.trim();
+                if (!query) {
+                    alert('Veuillez entrer un terme de recherche');
+                    return;
+                }
+
+                try {
+                    const books = await apiService.searchBooks(query);
+                    displayResults(books);
+                    updateStats();
+                } catch (error) {
+                    console.error('Erreur:', error);
+                }
+            });
+
+            document.getElementById('search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('search-btn').click();
+                }
+            });
+
+            function displayResults(books) {
+                const resultsEl = document.getElementById('results');
+                
+                if (books.length === 0) {
+                    resultsEl.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <p>Aucun livre trouvé</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const resultsHtml = `
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">Résultats (${books.length} livres trouvés)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            ${books.map(book => `
+                                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                                    <img src="${book.thumbnail}" alt="${book.title}" 
+                                        class="w-full h-48 object-cover rounded mb-3"
+                                        onerror="this.src='https://via.placeholder.com/150x200?text=Pas+d%27image'">
+                                    <h4 class="font-medium text-sm mb-2 line-clamp-2">${book.title}</h4>
+                                    <p class="text-xs text-gray-600 mb-2">${book.authors.join(', ')}</p>
+                                    <p class="text-xs text-gray-500">${book.publishedDate}</p>
+                                    <div class="mt-3">
+                                        <button onclick="showBookDetails('${book.id}')" 
+                                                class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                            Voir détails
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                resultsEl.innerHTML = resultsHtml;
+            }
+
+            async function showBookDetails(bookId) {
+                try {
+                    const book = await apiService.getBookDetails(bookId);
+                    if (book) {
+                        alert(`Détails récupérés pour: ${book.title}\nAuteur(s): ${book.authors.join(', ')}\nÉditeur: ${book.publisher}\nPages: ${book.pageCount}\nDescription: ${book.description.substring(0, 200)}...`);
+                    }
+                } catch (error) {
+                    alert('Erreur lors de la récupération des détails');
+                }
+            }
+
+            function updateStats() {
+                const stats = apiService.getApiStats();
+                document.getElementById('stats-content').innerHTML = `
+                    <p>Cache: ${stats.cacheSize} entrée(s)</p>
+                    <p>Dernier nettoyage: ${stats.lastCleanup}</p>
+                `;
+            }
+
+            window.addEventListener('load', () => {
+                updateStats();
+                
+                const suggestions = ['Harry Potter', 'Stephen King', 'Agatha Christie', 'Dune', '1984'];
+                const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+                document.getElementById('search-input').placeholder = `Rechercher un livre (ex: ${randomSuggestion}...)`;
+            });
+        </script>
+    </body>
+</html>
