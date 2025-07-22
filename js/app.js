@@ -21,12 +21,16 @@ class App {
     async init() {
         try {
             await this.waitForServices();
+            
             this.checkDependencies();
             this.initializeServices();
             this.setupGlobalEventListeners();
+            this.loadInitialData();
             this.setupErrorHandling();
             
             this.isInitialized = true;
+            
+            this.showWelcomeMessage();
         } catch (error) {
             this.handleInitializationError(error);
         }
@@ -94,6 +98,14 @@ class App {
         });
     }
 
+    loadInitialData() {
+        const stats = this.services.storage.getStats();
+        
+        if (stats && stats.totalBooks === 0) {
+            this.showFirstTimeUserExperience();
+        }
+    }
+
     setupErrorHandling() {
         window.addEventListener('error', (event) => {
             this.services.ui.showMessage('Une erreur inattendue s\'est produite', 'error');
@@ -102,6 +114,26 @@ class App {
         window.addEventListener('unhandledrejection', (event) => {
             event.preventDefault();
         });
+    }
+
+    showWelcomeMessage() {
+        const stats = this.services.storage.getStats();
+        if (stats && stats.totalBooks > 0) {
+            this.services.ui.showMessage(
+                `Bienvenue ! Vous avez ${stats.totalBooks} livre(s) dans votre bibliothèque`, 
+                'info'
+            );
+        }
+    }
+
+    showFirstTimeUserExperience() {
+        setTimeout(() => {
+            this.services.ui.showMessage(
+                'Bienvenue ! Cliquez sur "Ajouter un livre" pour commencer votre bibliothèque', 
+                'info', 
+                8000
+            );
+        }, 1000);
     }
 
     handleAppResume() {
